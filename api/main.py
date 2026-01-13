@@ -58,6 +58,14 @@ router = APIRouter(
 )
 
 
+@app.get("/", tags=["Health"])
+async def root():
+    """
+    Root endpoint for health checks (used by Render, etc.)
+    """
+    return {"status": "ok", "message": "CY Weather API is running"}
+
+
 @router.get("/health", tags=["Health"])
 async def health_check():
     """
