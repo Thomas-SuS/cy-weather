@@ -2,7 +2,7 @@
 
 Application météo complète avec une API backend FastAPI et un frontend Vue.js moderne.
 
-![CI](https://github.com/thomas-music/cy-weather/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Thomas-SuS/cy-weather/actions/workflows/ci.yml/badge.svg)
 ![Architecture](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square)
 ![Frontend](https://img.shields.io/badge/Frontend-Vue.js-4FC08D?style=flat-square)
 ![API](https://img.shields.io/badge/API-Open--Meteo-blue?style=flat-square)
