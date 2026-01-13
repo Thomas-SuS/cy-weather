@@ -45,6 +45,8 @@ jobs:
 
       - name: Build
         working-directory: ./web
+        env:
+          VITE_API_URL: https://cy-weather-api.onrender.com/api
         run: npm run build
 
       - name: Setup Pages
