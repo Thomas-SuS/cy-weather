@@ -65,6 +65,10 @@ markupsafe==3.0.3
     # via jinja2
 mdurl==0.1.2
     # via markdown-it-py
+prometheus-client==0.24.0
+    # via prometheus-fastapi-instrumentator
+prometheus-fastapi-instrumentator==7.1.0
+    # via api (pyproject.toml)
 pydantic==2.12.5
     # via
     #   fastapi
@@ -105,7 +109,9 @@ sentry-sdk==2.49.0
 shellingham==1.5.4
     # via typer
 starlette==0.50.0
-    # via fastapi
+    # via
+    #   fastapi
+    #   prometheus-fastapi-instrumentator
 tomli==2.4.0
     # via fastapi-cli
 typer==0.21.1
