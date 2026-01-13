@@ -25,7 +25,6 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
-        # URL de l'API pour le build
         VITE_API_URL: http://localhost:8000/api
     container_name: cy-weather-web
     ports:
@@ -39,6 +38,65 @@ services:
       start_period: 10s
     networks:
       - cy-weather-network
+
+  # Service Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cy-weather-prometheus
+    network_mode: host
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cy-weather-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - cy-weather-network
+    depends_on:
+      - prometheus
+
+  # Service node exporter
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: cy-weather-node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host    
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|var/lib/docker/containers)($$|/)'
+      - '--collector.systemd'
+      - '--collector.processes'
+
+volumes:
+  grafana-data:
+  prometheus-data:
 
 networks:
   cy-weather-network:

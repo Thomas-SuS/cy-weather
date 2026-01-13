@@ -2,6 +2,12 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from src.models.Weather import WeatherRequest, WeatherResponse, ForecastResponse
 from src.services.weather_service import weather_service
+from src.metrics.prometheus_metrics import (
+    track_weather_request,
+    track_external_api_error,
+    update_weather_metrics,
+    time_weather_request,
+)
 import httpx
 
 
@@ -30,9 +36,24 @@ async def get_current_weather(
         HTTPException: 404 si la ville n'est pas trouvée, 500 en cas d'erreur serveur
     """
     try:
-        weather_data = await weather_service.get_current_weather(city, country_code)
+        with time_weather_request("current", city):
+            weather_data = await weather_service.get_current_weather(city, country_code)
+        
+        # Enregistrer les métriques de succès
+        track_weather_request("current", city, "success")
+        
+        # Mettre à jour les métriques de température et humidité
+        update_weather_metrics(
+            city=weather_data.city,
+            country=weather_data.country or "",
+            temperature=weather_data.weather.temperature,
+            humidity=weather_data.weather.humidity
+        )
+        
         return weather_data
     except httpx.HTTPStatusError as e:
+        track_weather_request("current", city, "error")
+        track_external_api_error("open-meteo", "http_status_error")
         if e.response.status_code == 404:
             raise HTTPException(
                 status_code=404,
@@ -43,10 +64,14 @@ async def get_current_weather(
             detail=f"Erreur lors de la récupération des données météo: {str(e)}",
         )
     except httpx.HTTPError as e:
+        track_weather_request("current", city, "error")
+        track_external_api_error("open-meteo", "connection_error")
         raise HTTPException(
             status_code=500, detail=f"Erreur de connexion à l'API météo: {str(e)}"
         )
     except Exception as e:
+        track_weather_request("current", city, "error")
+        track_external_api_error("open-meteo", "unknown_error")
         raise HTTPException(
             status_code=500, detail=f"Erreur interne du serveur: {str(e)}"
         )
@@ -74,9 +99,16 @@ async def get_weather_forecast(
         HTTPException: 404 si la ville n'est pas trouvée, 500 en cas d'erreur serveur
     """
     try:
-        forecast_data = await weather_service.get_forecast(city, country_code)
+        with time_weather_request("forecast", city):
+            forecast_data = await weather_service.get_forecast(city, country_code)
+        
+        # Enregistrer les métriques de succès
+        track_weather_request("forecast", city, "success")
+        
         return forecast_data
     except httpx.HTTPStatusError as e:
+        track_weather_request("forecast", city, "error")
+        track_external_api_error("open-meteo", "http_status_error")
         if e.response.status_code == 404:
             raise HTTPException(
                 status_code=404,
@@ -87,10 +119,14 @@ async def get_weather_forecast(
             detail=f"Erreur lors de la récupération des prévisions météo: {str(e)}",
         )
     except httpx.HTTPError as e:
+        track_weather_request("forecast", city, "error")
+        track_external_api_error("open-meteo", "connection_error")
         raise HTTPException(
             status_code=500, detail=f"Erreur de connexion à l'API météo: {str(e)}"
         )
     except Exception as e:
+        track_weather_request("forecast", city, "error")
+        track_external_api_error("open-meteo", "unknown_error")
         raise HTTPException(
             status_code=500, detail=f"Erreur interne du serveur: {str(e)}"
         )

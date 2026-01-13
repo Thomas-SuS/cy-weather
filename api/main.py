@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from src.resources.weather_resource import router as weather_router
 
 
@@ -11,6 +12,10 @@ tags_metadata = [
     {
         "name": "Weather",
         "description": "Endpoints pour récupérer les données météo actuelles et les prévisions",
+    },
+    {
+        "name": "Metrics",
+        "description": "Prometheus metrics endpoint",
     },
 ]
 
@@ -33,6 +38,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Configuration de Prometheus Instrumentator
+instrumentator = Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    should_respect_env_var=False,
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=["/metrics"],
+    inprogress_name="cy_weather_http_requests_inprogress",
+    inprogress_labels=True,
+)
+
+# Instrumenter l'application et exposer les métriques
+instrumentator.instrument(app).expose(app, endpoint="/metrics", tags=["Metrics"])
 
 router = APIRouter(
     prefix="/api",

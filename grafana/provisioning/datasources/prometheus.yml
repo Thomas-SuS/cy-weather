@@ -1,0 +1,14 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    # Sur Linux, utiliser l'IP du gateway Docker pour accéder à l'hôte
+    # (Prometheus est en network_mode: host)
+    url: http://172.17.0.1:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
