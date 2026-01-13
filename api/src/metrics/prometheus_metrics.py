@@ -1,11 +1,12 @@
 """
 Métriques Prometheus personnalisées pour CY Weather API
 """
-from prometheus_client import Counter, Histogram, Gauge, Info
+
+import time
+
+from prometheus_client import Counter, Gauge, Histogram, Info
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_fastapi_instrumentator.metrics import Info as MetricInfo
-from functools import wraps
-import time
 
 # ============================================================================
 # COMPTEURS - Pour suivre le nombre total d'événements
@@ -15,21 +16,21 @@ import time
 weather_requests_total = Counter(
     "cy_weather_requests_total",
     "Nombre total de requêtes météo",
-    ["endpoint", "city", "status"]
+    ["endpoint", "city", "status"],
 )
 
 # Compteur des erreurs API externe (Open-Meteo)
 external_api_errors_total = Counter(
     "cy_weather_external_api_errors_total",
     "Nombre total d'erreurs lors des appels à l'API externe",
-    ["api_name", "error_type"]
+    ["api_name", "error_type"],
 )
 
 # Compteur des requêtes par code HTTP
 http_requests_by_status = Counter(
     "cy_weather_http_requests_by_status_total",
     "Nombre de requêtes HTTP par code de statut",
-    ["method", "endpoint", "status_code"]
+    ["method", "endpoint", "status_code"],
 )
 
 # ============================================================================
@@ -41,7 +42,7 @@ weather_request_duration = Histogram(
     "cy_weather_request_duration_seconds",
     "Durée des requêtes météo en secondes",
     ["endpoint", "city"],
-    buckets=[0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 10.0]
+    buckets=[0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 10.0],
 )
 
 # Temps de réponse pour les appels à l'API externe
@@ -49,7 +50,7 @@ external_api_duration = Histogram(
     "cy_weather_external_api_duration_seconds",
     "Durée des appels à l'API externe en secondes",
     ["api_name", "endpoint"],
-    buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0]
+    buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
 )
 
 # ============================================================================
@@ -60,37 +61,36 @@ external_api_duration = Histogram(
 current_temperature = Gauge(
     "cy_weather_current_temperature_celsius",
     "Température actuelle en degrés Celsius",
-    ["city", "country"]
+    ["city", "country"],
 )
 
 # Humidité actuelle par ville
 current_humidity = Gauge(
     "cy_weather_current_humidity_percent",
     "Humidité actuelle en pourcentage",
-    ["city", "country"]
+    ["city", "country"],
 )
 
 # Nombre de villes actuellement suivies
 cities_tracked = Gauge(
     "cy_weather_cities_tracked",
-    "Nombre de villes pour lesquelles des données ont été récupérées"
+    "Nombre de villes pour lesquelles des données ont été récupérées",
 )
 
 # ============================================================================
 # INFO - Métadonnées sur l'application
 # ============================================================================
 
-app_info = Info(
-    "cy_weather_app",
-    "Informations sur l'application CY Weather"
-)
+app_info = Info("cy_weather_app", "Informations sur l'application CY Weather")
 
 # Initialisation des infos de l'application
-app_info.info({
-    "version": "0.1.0",
-    "api_provider": "open-meteo",
-    "description": "CY Weather API - Application météo"
-})
+app_info.info(
+    {
+        "version": "0.1.0",
+        "api_provider": "open-meteo",
+        "description": "CY Weather API - Application météo",
+    }
+)
 
 # ============================================================================
 # FONCTIONS UTILITAIRES POUR LE TRACKING
@@ -102,7 +102,9 @@ _tracked_cities = set()
 
 def track_weather_request(endpoint: str, city: str, status: str = "success"):
     """Enregistre une requête météo"""
-    weather_requests_total.labels(endpoint=endpoint, city=city.lower(), status=status).inc()
+    weather_requests_total.labels(
+        endpoint=endpoint, city=city.lower(), status=status
+    ).inc()
 
 
 def track_external_api_error(api_name: str, error_type: str):
@@ -113,9 +115,7 @@ def track_external_api_error(api_name: str, error_type: str):
 def track_http_request(method: str, endpoint: str, status_code: int):
     """Enregistre une requête HTTP"""
     http_requests_by_status.labels(
-        method=method, 
-        endpoint=endpoint, 
-        status_code=str(status_code)
+        method=method, endpoint=endpoint, status_code=str(status_code)
     ).inc()
 
 
@@ -123,10 +123,10 @@ def update_weather_metrics(city: str, country: str, temperature: float, humidity
     """Met à jour les métriques météo pour une ville"""
     city_lower = city.lower()
     country_upper = country.upper() if country else "UNKNOWN"
-    
+
     current_temperature.labels(city=city_lower, country=country_upper).set(temperature)
     current_humidity.labels(city=city_lower, country=country_upper).set(humidity)
-    
+
     # Tracker les villes uniques
     _tracked_cities.add(city_lower)
     cities_tracked.set(len(_tracked_cities))
@@ -134,16 +134,16 @@ def update_weather_metrics(city: str, country: str, temperature: float, humidity
 
 class MetricsTimer:
     """Context manager pour mesurer le temps d'exécution"""
-    
+
     def __init__(self, histogram, labels: dict):
         self.histogram = histogram
         self.labels = labels
         self.start_time = None
-    
+
     def __enter__(self):
         self.start_time = time.time()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         duration = time.time() - self.start_time
         self.histogram.labels(**self.labels).observe(duration)
@@ -152,17 +152,22 @@ class MetricsTimer:
 
 def time_weather_request(endpoint: str, city: str):
     """Timer pour les requêtes météo"""
-    return MetricsTimer(weather_request_duration, {"endpoint": endpoint, "city": city.lower()})
+    return MetricsTimer(
+        weather_request_duration, {"endpoint": endpoint, "city": city.lower()}
+    )
 
 
 def time_external_api_call(api_name: str, endpoint: str):
     """Timer pour les appels API externes"""
-    return MetricsTimer(external_api_duration, {"api_name": api_name, "endpoint": endpoint})
+    return MetricsTimer(
+        external_api_duration, {"api_name": api_name, "endpoint": endpoint}
+    )
 
 
 # ============================================================================
 # CONFIGURATION DE L'INSTRUMENTATOR FASTAPI
 # ============================================================================
+
 
 def create_instrumentator() -> Instrumentator:
     """Crée et configure l'instrumentator Prometheus pour FastAPI"""
@@ -175,18 +180,18 @@ def create_instrumentator() -> Instrumentator:
         inprogress_name="cy_weather_http_requests_inprogress",
         inprogress_labels=True,
     )
-    
+
     # Ajouter les métriques par défaut
-    instrumentator.add(
-        default_metrics()
-    )
-    
+    instrumentator.add(default_metrics())
+
     return instrumentator
 
 
 def default_metrics() -> callable:
     """Retourne une fonction qui ajoute des métriques par défaut"""
+
     def instrumentation(info: MetricInfo) -> None:
         # Les métriques par défaut sont automatiquement ajoutées
         pass
+
     return instrumentation
